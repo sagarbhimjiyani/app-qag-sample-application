@@ -1,0 +1,261 @@
+openapi: 3.0.0
+info:
+  title: User Management API
+  description: API for managing user accounts and profiles
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+
+paths:
+  /users:
+    get:
+      summary: Get all users
+      description: Retrieve a paginated list of all users
+      operationId: listUsers
+      parameters:
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Number of results per page
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - bearerAuth: []
+
+    post:
+      summary: Create a new user
+      description: Create a new user account
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+        '409':
+          description: User already exists
+        '500':
+          description: Internal server error
+      security:
+        - bearerAuth: []
+
+  /users/{userId}:
+    get:
+      summary: Get user by ID
+      description: Retrieve a specific user by their ID
+      operationId: getUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - bearerAuth: []
+
+    put:
+      summary: Update user
+      description: Update an existing user's information
+      operationId: updateUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+        '404':
+          description: User not found
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - bearerAuth: []
+
+    delete:
+      summary: Delete user
+      description: Delete a user account
+      operationId: deleteUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          description: User not found
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - bearerAuth: []
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User email address
+        name:
+          type: string
+          description: User full name
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          description: User phone number
+          pattern: '^\+?[1-9]\d{1,14}$'
+          nullable: true
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+          default: user
+          description: User role
+        active:
+          type: boolean
+          default: true
+          description: Whether user is active
+        createdAt:
+          type: string
+          format: date-time
+          description: User creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          nullable: true
+
+    UserInput:
+      type: object
+      required:
+        - email
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        name:
+          type: string
+          description: User full name
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          description: User phone number
+          pattern: '^\+?[1-9]\d{1,14}$'
+          nullable: true
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+          default: user
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token for authentication
+
+tags:
+  - name: Users
+    description: User management operations
