@@ -17,7 +17,7 @@
    
    PowerShell:
    ───────────────────────────────────────────────────────────────────────────
-   $env:PROJECT_ID = "your-gcp-project-id"
+   $env:PROJECT_ID = "project-0e74efb5-2b1c-4ed8-ad0"
    gcloud config set project $env:PROJECT_ID
    python deploy.py
    ───────────────────────────────────────────────────────────────────────────
