@@ -146,13 +146,36 @@ Output only the Gherkin feature files. No additional explanation needed.
 """
     
     # Call the agent to generate test cases
-    # Support multiple possible ADK/LLM SDK method names and method signatures
+    # Special-case the ADK LlmAgent which exposes run(ctx=..., node_input=...)
     if spec_reader_agent is None:
         raise RuntimeError("LLM agent is not configured.")
 
     import inspect
 
     last_exc = None
+    agent_type = type(spec_reader_agent).__name__
+
+    # If this is the ADK LlmAgent, try the ADK run signature first
+    if agent_type == 'LlmAgent' and hasattr(spec_reader_agent, 'run'):
+        try:
+            # Try common node_input shapes
+            try:
+                return spec_reader_agent.run(ctx={}, node_input={'messages': [{'role': 'user', 'content': prompt}]})
+            except TypeError:
+                pass
+            try:
+                return spec_reader_agent.run(ctx={}, node_input={'input': prompt})
+            except TypeError:
+                pass
+            try:
+                # Some ADK variants accept node_input as raw string
+                return spec_reader_agent.run(ctx={}, node_input=prompt)
+            except TypeError as e:
+                last_exc = e
+        except Exception as e:
+            last_exc = e
+
+    # Generic fallback: try a variety of common method names and call patterns
     for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
         fn = getattr(spec_reader_agent, method, None)
         if not callable(fn):
@@ -207,16 +230,12 @@ Output only the Gherkin feature files. No additional explanation needed.
 
     # If we reach here, no invocation succeeded
     if last_exc:
-        # Provide more diagnostic info: exception + agent type + available methods
         try:
-            agent_type = type(spec_reader_agent).__name__
             agent_methods = [n for n in dir(spec_reader_agent) if not n.startswith('_')]
         except Exception:
-            agent_type = str(type(spec_reader_agent))
             agent_methods = []
         raise RuntimeError(
-            f"Failed to invoke LLM agent; last error: {last_exc!r}; "
-            f"agent_type: {agent_type}; agent_methods: {agent_methods}"
+            f"Failed to invoke LLM agent; last error: {last_exc!r}; agent_type: {agent_type}; agent_methods: {agent_methods}"
         ) from last_exc
     raise RuntimeError("LLM agent object doesn't expose a known generation method.")
 
