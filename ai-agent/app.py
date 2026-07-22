@@ -70,6 +70,16 @@ def generate_from_upload():
         from main import generate_test_cases
         test_cases = generate_test_cases(str(filepath))
 
+        # Debug/logging: capture type and repr to help diagnose streaming/async results
+        try:
+            import inspect, types
+            tc_type = type(test_cases)
+            tc_dir = [n for n in dir(test_cases) if not n.startswith('_')]
+            app.logger.debug('generate_test_cases returned type=%s', tc_type)
+            app.logger.debug('generate_test_cases dir=%s', tc_dir)
+        except Exception:
+            pass
+
         # Normalize result: some LLM SDKs return async generators or awaitables
         import asyncio, inspect, types
         if inspect.isasyncgen(test_cases) or isinstance(test_cases, types.AsyncGeneratorType):
@@ -81,11 +91,19 @@ def generate_from_upload():
             try:
                 test_cases = asyncio.run(_collect(test_cases))
             except Exception as e:
-                return jsonify({'error': f'Failed to collect async generator result: {e}', 'status': 'failed'}), 500
+                app.logger.exception('Async generator collection failed')
+                # Return diagnostics to the client to speed up debugging
+                return jsonify({
+                    'error': f'Failed to collect async generator result: {e}',
+                    'type': str(tc_type),
+                    'dir': tc_dir,
+                    'status': 'failed'
+                }), 500
         elif inspect.isawaitable(test_cases):
             try:
                 test_cases = asyncio.run(test_cases)
             except Exception as e:
+                app.logger.exception('Awaiting result failed')
                 return jsonify({'error': f'Failed to await result: {e}', 'status': 'failed'}), 500
         else:
             test_cases = str(test_cases)
