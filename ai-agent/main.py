@@ -121,12 +121,6 @@ def generate_test_cases(swagger_file_path: str) -> str:
     # Load the Swagger/OpenAPI file
     spec = load_swagger_file(swagger_file_path)
 
-    if not LLM_AVAILABLE:
-        raise RuntimeError(
-            "LLM libraries (google-adk-agents/google-genai) are not installed. "
-            "Install them or deploy an image that includes these packages to enable generation."
-        )
-    
     # Prepare the specification content for the agent
     spec_content = json.dumps(spec, indent=2)
     
@@ -152,8 +146,16 @@ Output only the Gherkin feature files. No additional explanation needed.
 """
     
     # Call the agent to generate test cases
-    result = spec_reader_agent.generate(prompt)
-    
+    # Support multiple possible ADK/LLM SDK method names
+    if spec_reader_agent is None:
+        raise RuntimeError("LLM agent is not configured.")
+    for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
+        fn = getattr(spec_reader_agent, method, None)
+        if callable(fn):
+            result = fn(prompt)
+            break
+    else:
+        raise RuntimeError("LLM agent object doesn't expose a known generation method.")
     return result
 
 
@@ -183,8 +185,16 @@ Generate test cases in the following format:
 Output only the Gherkin feature files. No additional explanation needed.
 """
     
-    result = spec_reader_agent.generate(prompt)
-    
+    # Support multiple possible ADK/LLM SDK method names
+    if spec_reader_agent is None:
+        raise RuntimeError("LLM agent is not configured.")
+    for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
+        fn = getattr(spec_reader_agent, method, None)
+        if callable(fn):
+            result = fn(prompt)
+            break
+    else:
+        raise RuntimeError("LLM agent object doesn't expose a known generation method.")
     return result
 
 
