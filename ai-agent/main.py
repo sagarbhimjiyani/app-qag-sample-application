@@ -146,17 +146,69 @@ Output only the Gherkin feature files. No additional explanation needed.
 """
     
     # Call the agent to generate test cases
-    # Support multiple possible ADK/LLM SDK method names
+    # Support multiple possible ADK/LLM SDK method names and method signatures
     if spec_reader_agent is None:
         raise RuntimeError("LLM agent is not configured.")
+
+    import inspect
+
+    last_exc = None
     for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
         fn = getattr(spec_reader_agent, method, None)
-        if callable(fn):
-            result = fn(prompt)
-            break
-    else:
-        raise RuntimeError("LLM agent object doesn't expose a known generation method.")
-    return result
+        if not callable(fn):
+            continue
+        try:
+            sig = inspect.signature(fn)
+            params = sig.parameters
+            # Prefer calling with a single positional prompt if the callable accepts >=1 positional arg
+            positional_params = [p for p in params.values()
+                                 if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+
+            # If the function expects no arguments, call without args
+            if len(positional_params) == 0:
+                result = fn()
+                return result
+
+            # If it accepts at least one positional, call with prompt
+            if len(positional_params) >= 1:
+                try:
+                    result = fn(prompt)
+                    return result
+                except TypeError:
+                    # positional call failed; try keyword variants below
+                    pass
+
+            # Try common keyword names
+            kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages')
+            kw = {}
+            for name in kw_variants:
+                if name in params:
+                    if name == 'messages':
+                        kw[name] = [prompt]
+                    else:
+                        kw[name] = prompt
+                    break
+
+            if kw:
+                result = fn(**kw)
+                return result
+
+            # As a last resort, try calling with a single-element list (some SDKs expect messages)
+            try:
+                result = fn([prompt])
+                return result
+            except TypeError as e:
+                last_exc = e
+                continue
+
+        except Exception as e:
+            last_exc = e
+            continue
+
+    # If we reach here, no invocation succeeded
+    if last_exc:
+        raise RuntimeError("Failed to invoke LLM agent: ") from last_exc
+    raise RuntimeError("LLM agent object doesn't expose a known generation method.")
 
 
 def generate_test_cases_from_text(swagger_yaml_text: str) -> str:
