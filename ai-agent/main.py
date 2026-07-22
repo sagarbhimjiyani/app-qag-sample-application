@@ -136,51 +136,41 @@ Generate test cases in the following format:
 Output only the Gherkin feature files. No additional explanation needed.
 """
 
-    # Try ADK agent first (if available)
+    # Try ADK agent first (if available) using a Runner-backed invocation
     adk_error = None
     if LLM_AVAILABLE and 'spec_reader_agent' in globals() and spec_reader_agent is not None:
         try:
-            import inspect
-            agent_type = type(spec_reader_agent).__name__
-            # ADK LlmAgent: prefer run(node_input=...)
-            if agent_type == 'LlmAgent' and hasattr(spec_reader_agent, 'run'):
-                try:
-                    return spec_reader_agent.run(node_input={'messages': [{'role': 'user', 'content': prompt}]})
-                except Exception:
-                    try:
-                        return spec_reader_agent.run(node_input={'input': prompt})
-                    except Exception:
-                        pass
+            # Use an in-memory session service and Runner to build a proper InvocationContext
+            from google.adk.runners import Runner
+            from google.adk.sessions.in_memory_session_service import InMemorySessionService
+            from google.genai import types as genai_types
 
-            # Generic fallback for agent methods
-            for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
-                fn = getattr(spec_reader_agent, method, None)
-                if not callable(fn):
+            session_svc = InMemorySessionService()
+            runner = Runner(session_service=session_svc, app_name='gherkin-agent', agent=spec_reader_agent)
+
+            # Build a Content with a single Part containing the prompt
+            user_content = genai_types.Content(parts=[genai_types.Part(text=prompt)])
+
+            # Runner.run yields Events; collect textual parts from event.content.parts
+            events = runner.run(user_id='user', session_id='local', new_message=user_content)
+            parts = []
+            for event in events:
+                content = getattr(event, 'content', None)
+                if not content:
                     continue
-                try:
-                    sig = inspect.signature(fn)
-                    params = sig.parameters
-                    positional_params = [p for p in params.values() if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
-                    if len(positional_params) >= 1:
-                        return fn(prompt)
-                    kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages', 'node_input')
-                    kw = {}
-                    for name in kw_variants:
-                        if name in params:
-                            if name == 'messages':
-                                kw[name] = [prompt]
-                            elif name == 'node_input':
-                                kw[name] = {'messages': [{'role': 'user', 'content': prompt}]}
-                            else:
-                                kw[name] = prompt
-                            break
-                    if kw:
-                        try:
-                            return fn(**kw)
-                        except Exception:
-                            pass
-                except Exception:
-                    continue
+                for p in getattr(content, 'parts', []) or []:
+                    text = getattr(p, 'text', None)
+                    if text:
+                        parts.append(str(text))
+
+            try:
+                runner.close()
+            except Exception:
+                pass
+
+            if parts:
+                return '\n'.join(parts)
+            # If ADK produced no textual parts, fall through to genai fallback
         except Exception as e:
             adk_error = e
     else:
