@@ -108,27 +108,18 @@ def load_swagger_file(file_path: str) -> dict:
             raise ValueError("File must be JSON or YAML format")
 
 
-def generate_test_cases(swagger_file_path: str) -> str:
-    """
-    Main function to generate Gherkin test cases from a Swagger/OpenAPI file.
-    
-    Args:
-        swagger_file_path: Path to the Swagger/OpenAPI file
-        
-    Returns:
-        Generated Gherkin test cases as a string
-    """
-    # Load the Swagger/OpenAPI file
-    spec = load_swagger_file(swagger_file_path)
+def generate_test_cases_from_spec(spec: dict) -> str:
+    """Generate Gherkin test cases from a parsed OpenAPI/Swagger spec dict.
 
-    # Prepare the specification content for the agent
+    Tries ADK agent first, falls back to google.genai Client, then to a simple
+    deterministic converter if remote SDKs or credentials are unavailable.
+    """
+    # Prepare prompt and context
     spec_content = json.dumps(spec, indent=2)
-    
-    # Get the API title and version for context
     api_info = spec.get('info', {})
     api_title = api_info.get('title', 'API')
     api_version = api_info.get('version', '1.0')
-    
+
     prompt = f"""
 Please analyze the following {api_title} (v{api_version}) specification and generate comprehensive Gherkin test cases.
 
@@ -144,153 +135,148 @@ Generate test cases in the following format:
 
 Output only the Gherkin feature files. No additional explanation needed.
 """
-    
-    # Call the agent to generate test cases
-    # Special-case the ADK LlmAgent which exposes run(ctx=..., node_input=...)
-    if spec_reader_agent is None:
-        raise RuntimeError("LLM agent is not configured.")
 
-    import inspect
-
-    last_exc = None
-    agent_type = type(spec_reader_agent).__name__
-
-    # If this is the ADK LlmAgent, try the ADK run signature but do NOT pass a plain dict as ctx
-    if agent_type == 'LlmAgent' and hasattr(spec_reader_agent, 'run'):
+    # Try ADK agent first (if available)
+    adk_error = None
+    if LLM_AVAILABLE and 'spec_reader_agent' in globals() and spec_reader_agent is not None:
         try:
-            # Try node_input shapes without providing ctx (ADK will construct proper context internally)
-            try:
-                return spec_reader_agent.run(node_input={'messages': [{'role': 'user', 'content': prompt}]})
-            except TypeError:
-                pass
-            try:
-                return spec_reader_agent.run(node_input={'input': prompt})
-            except TypeError:
-                pass
-            try:
-                # Some ADK variants accept node_input as raw string
-                return spec_reader_agent.run(node_input=prompt)
-            except TypeError as e:
-                last_exc = e
-        except Exception as e:
-            last_exc = e
-
-    # Generic fallback: try a variety of common method names and call patterns
-    for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
-        fn = getattr(spec_reader_agent, method, None)
-        if not callable(fn):
-            continue
-        try:
-            sig = inspect.signature(fn)
-            params = sig.parameters
-            # Prefer calling with a single positional prompt if the callable accepts >=1 positional arg
-            positional_params = [p for p in params.values()
-                                 if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
-
-            # If the function expects no arguments, call without args
-            if len(positional_params) == 0:
-                result = fn()
-                return result
-
-            # If it accepts at least one positional, call with prompt
-            if len(positional_params) >= 1:
+            import inspect
+            agent_type = type(spec_reader_agent).__name__
+            # ADK LlmAgent: prefer run(node_input=...)
+            if agent_type == 'LlmAgent' and hasattr(spec_reader_agent, 'run'):
                 try:
-                    result = fn(prompt)
-                    return result
-                except TypeError:
-                    # positional call failed; try keyword variants below
-                    pass
+                    return spec_reader_agent.run(node_input={'messages': [{'role': 'user', 'content': prompt}]})
+                except Exception:
+                    try:
+                        return spec_reader_agent.run(node_input={'input': prompt})
+                    except Exception:
+                        pass
 
-            # Try common keyword names (including ADK's node_input) and node_input variants
-            kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages', 'node_input')
-            kw = {}
-            for name in kw_variants:
-                if name in params:
-                    if name == 'messages':
-                        kw[name] = [prompt]
-                    elif name == 'node_input':
-                        # Provide node_input as dict with common shapes
-                        kw[name] = {'messages': [{'role': 'user', 'content': prompt}]}
-                    else:
-                        kw[name] = prompt
-                    break
-
-            if kw:
+            # Generic fallback for agent methods
+            for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
+                fn = getattr(spec_reader_agent, method, None)
+                if not callable(fn):
+                    continue
                 try:
-                    result = fn(**kw)
-                    return result
-                except TypeError:
-                    # If node_input shape failed, try alternative node_input shapes
-                    if 'node_input' in kw:
+                    sig = inspect.signature(fn)
+                    params = sig.parameters
+                    positional_params = [p for p in params.values() if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+                    if len(positional_params) >= 1:
+                        return fn(prompt)
+                    kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages', 'node_input')
+                    kw = {}
+                    for name in kw_variants:
+                        if name in params:
+                            if name == 'messages':
+                                kw[name] = [prompt]
+                            elif name == 'node_input':
+                                kw[name] = {'messages': [{'role': 'user', 'content': prompt}]}
+                            else:
+                                kw[name] = prompt
+                            break
+                    if kw:
                         try:
-                            result = fn(node_input={'input': prompt})
-                            return result
-                        except Exception as e:
-                            last_exc = e
+                            return fn(**kw)
+                        except Exception:
                             pass
-                    last_exc = TypeError('Keyword invocation failed')
-
-            # As a last resort, try calling with a single-element list (some SDKs expect messages)
-            try:
-                result = fn([prompt])
-                return result
-            except TypeError as e:
-                last_exc = e
-                continue
-
+                except Exception:
+                    continue
         except Exception as e:
-            last_exc = e
-            continue
+            adk_error = e
+    else:
+        adk_error = RuntimeError('ADK/LLM agent unavailable')
 
-    # If we reach here, no invocation succeeded
-    if last_exc:
-        try:
-            agent_methods = [n for n in dir(spec_reader_agent) if not n.startswith('_')]
-        except Exception:
-            agent_methods = []
-        raise RuntimeError(
-            f"Failed to invoke LLM agent; last error: {last_exc!r}; agent_type: {agent_type}; agent_methods: {agent_methods}"
-        ) from last_exc
-    raise RuntimeError("LLM agent object doesn't expose a known generation method.")
+    # Next fallback: try google.genai Client directly (requires ADC)
+    genai_exc = None
+    try:
+        from google.genai import Client
+        client = Client(vertexai=True, location='global')
+        # Prefer chats API if available
+        if hasattr(client, 'chats') and getattr(client, 'chats') is not None:
+            try:
+                resp = client.chats.create(model='gemini-3.5-chat', messages=[{'author': 'user', 'content': prompt}])
+                # Try common response shapes
+                if hasattr(resp, 'last'):
+                    return str(getattr(resp, 'last'))
+                if hasattr(resp, 'output'):
+                    return str(resp.output)
+                return str(resp)
+            except Exception as e:
+                genai_exc = e
+        # Fallback to models.generate if present
+        if hasattr(client, 'models') and getattr(client, 'models') is not None and hasattr(client.models, 'generate'):
+            try:
+                gen = client.models.generate(model='text-bison-001', input=prompt)
+                if hasattr(gen, 'text'):
+                    return str(gen.text)
+                if hasattr(gen, 'output'):
+                    return str(gen.output)
+                return str(gen)
+            except Exception as e:
+                genai_exc = e
+    except Exception as e:
+        genai_exc = e
+
+    # Final fallback: deterministic generator from spec to Gherkin
+    def simple_spec_to_gherkin(spec: dict) -> str:
+        title = api_title
+        parts = [f'Feature: {title}']
+        paths = spec.get('paths', {}) or {}
+        if not paths:
+            parts.append('\n# No paths found in spec; returning a minimal template')
+            parts.append('\nScenario: Minimal check')
+            parts.append('  Given the API exists')
+            parts.append('  When I send a GET request to /')
+            parts.append('  Then I should receive a response')
+            return '\n'.join(parts)
+        for path, methods in paths.items():
+            if not isinstance(methods, dict):
+                continue
+            for method, info in methods.items():
+                summary = info.get('summary') if isinstance(info, dict) else None
+                parts.append(f"\n# {summary or ''}")
+                parts.append(f"Scenario: {method.upper()} {path}")
+                parts.append(f"  Given the API is available")
+                parts.append(f"  When I send a {method.upper()} request to {path}")
+                parts.append(f"  Then I should receive a 200 response (or appropriate status)")
+        return '\n'.join(parts)
+
+    fallback = simple_spec_to_gherkin(spec)
+    diagnostic = f"\n\n# Fallback used. ADK error: {getattr(adk_error, 'args', adk_error)}; genai error: {getattr(genai_exc, 'args', genai_exc)}"
+    return fallback + diagnostic
 
 
-def generate_test_cases_from_text(swagger_yaml_text: str) -> str:
+def generate_test_cases(swagger_file_path: str) -> str:
     """
-    Generate test cases directly from Swagger/OpenAPI content as text.
+    Main function to generate Gherkin test cases from a Swagger/OpenAPI file.
     
     Args:
-        swagger_yaml_text: Swagger/OpenAPI specification as string (YAML or JSON)
+        swagger_file_path: Path to the Swagger/OpenAPI file
         
     Returns:
         Generated Gherkin test cases as a string
     """
-    prompt = f"""
-Please analyze the following Swagger/OpenAPI specification and generate comprehensive Gherkin test cases.
+    spec = load_swagger_file(swagger_file_path)
+    return generate_test_cases_from_spec(spec)
 
-SWAGGER/OPENAPI SPECIFICATION:
-{swagger_yaml_text}
 
-Generate test cases in the following format:
-- Use Feature blocks for each endpoint or logical grouping
-- Include both POSITIVE and NEGATIVE test scenarios
-- Use standard Gherkin syntax (Given, When, Then)
-- Ensure coverage of all HTTP methods and status codes documented
-- Include validation, edge cases, and error handling scenarios
+def generate_test_cases_from_text(swagger_yaml_text: str) -> str:
+    """Generate test cases directly from Swagger/OpenAPI content as text.
 
-Output only the Gherkin feature files. No additional explanation needed.
-"""
-    
-    # Support multiple possible ADK/LLM SDK method names
-    if spec_reader_agent is None:
-        raise RuntimeError("LLM agent is not configured.")
-    for method in ('generate', 'run', 'execute', 'call', 'respond', 'predict', 'chat'):
-        fn = getattr(spec_reader_agent, method, None)
-        if callable(fn):
-            result = fn(prompt)
-            break
-    else:
-        raise RuntimeError("LLM agent object doesn't expose a known generation method.")
-    return result
+    Tries to parse the text as JSON or YAML and then delegates to
+    generate_test_cases_from_spec.
+    """
+    # Try parse as JSON then YAML
+    try:
+        spec = json.loads(swagger_yaml_text)
+    except Exception:
+        try:
+            spec = yaml.safe_load(swagger_yaml_text)
+        except Exception:
+            raise ValueError('Provided specification text is not valid JSON or YAML')
+    if not isinstance(spec, dict):
+        raise ValueError('Parsed specification is not an object')
+    return generate_test_cases_from_spec(spec)
 
 
 if __name__ == "__main__":
