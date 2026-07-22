@@ -1,0 +1,289 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                   GHERKIN TEST AGENT - DEPLOYMENT REFERENCE                    ║
+║                                                                                ║
+║         🎯 Deploy Your AI Agent to Google Cloud Run in 15 Minutes              ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📍 LOCATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 c:\Users\sagar\IdeaProjects\app-qag-sample-application\ai-agent\
+
+
+🚀 DEPLOYMENT OPTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ FASTEST WAY (5 MINUTES - RECOMMENDED)
+   
+   PowerShell:
+   ───────────────────────────────────────────────────────────────────────────
+   $env:PROJECT_ID = "your-gcp-project-id"
+   gcloud config set project $env:PROJECT_ID
+   python deploy.py
+   ───────────────────────────────────────────────────────────────────────────
+   
+   Bash (Mac/Linux):
+   ───────────────────────────────────────────────────────────────────────────
+   export PROJECT_ID="your-gcp-project-id"
+   gcloud config set project $PROJECT_ID
+   chmod +x deploy.sh && ./deploy.sh
+   ───────────────────────────────────────────────────────────────────────────
+
+
+🔍 WHAT DEPLOYMENT SCRIPT DOES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ✅ Verifies gcloud & docker installed
+   ✅ Checks your GCP project
+   ✅ Enables 5 required Google APIs
+   ✅ Creates service account with permissions
+   ✅ Builds Docker image (~3-5 min)
+   ✅ Pushes to Google Container Registry
+   ✅ Deploys to Cloud Run
+   ✅ Tests deployment
+   ✅ Outputs live service URL
+   
+   → You don't do ANYTHING manual ← 
+
+
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   📄 INDEX.md
+      ↓
+      Start here → Overview of everything
+
+   📄 YOUR_DEPLOYMENT_STEPS.md
+      ↓
+      Your personal GCP deployment guide (step-by-step)
+      Includes: Prerequisites, PATH A (Automated), PATH B (Manual)
+
+   📄 QUICKSTART.md
+      ↓
+      5-minute quick reference & examples
+
+   📄 DEPLOYMENT_GUIDE.md
+      ↓
+      Comprehensive detailed guide (read for troubleshooting)
+
+   📄 README.md
+      ↓
+      API documentation (read after deployment)
+
+
+✅ PRE-FLIGHT CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Before deploying, verify:
+
+   □ gcloud is installed
+     ├─ PowerShell: gcloud --version
+     └─ Should show version number
+
+   □ Docker is installed
+     ├─ PowerShell: docker --version
+     └─ Should show version number
+
+   □ You have a GCP project
+     ├─ PowerShell: gcloud projects list
+     └─ Note down your PROJECT_ID
+
+   □ GCP project has billing enabled
+     ├─ Check: https://console.cloud.google.com/billing
+     └─ Add payment method if needed
+
+   □ You're logged into GCP
+     ├─ PowerShell: gcloud auth list
+     └─ You should see your email
+
+
+🎯 THE ACTUAL DEPLOYMENT (3 COMMANDS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Step 1: Set your project
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ $env:PROJECT_ID = "your-gcp-project-id"                               │
+   │ gcloud config set project $env:PROJECT_ID                             │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   Step 2: Run deployment script
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ python deploy.py                                                       │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   Step 3: Wait & follow prompts
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ Script asks:                                                           │
+   │ - Use current project? → Answer (y/n)                                │
+   │ - Which region? → Default: us-central1                               │
+   │ → Script handles everything else automatically!                       │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   → You get: https://gherkin-agent-xxx-uc.a.run.app
+
+
+📊 TIMELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   0-1 min   : Check prerequisites
+   1-2 min   : Configure project
+   2-4 min   : Enable APIs
+   4-5 min   : Create service account
+   5-10 min  : Docker build (longest part, be patient!)
+   10-12 min : Push image to registry
+   12-14 min : Deploy to Cloud Run
+   14-15 min : Test & verify
+   ────────────────────────
+   TOTAL: ~15 minutes ✅
+
+
+🧪 AFTER DEPLOYMENT - TEST YOUR SERVICE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   You'll get a URL like: https://gherkin-agent-xxx-uc.a.run.app
+
+   Test 1: Health Check
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ curl https://gherkin-agent-xxx-uc.a.run.app/health                   │
+   │                                                                         │
+   │ Response: {"status": "healthy", "service": "..."}                     │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   Test 2: Upload Swagger File
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ curl -X POST \                                                          │
+   │   -F "file=@example_swagger.yaml" \                                   │
+   │   https://gherkin-agent-xxx-uc.a.run.app/generate/upload              │
+   │                                                                         │
+   │ Response: Test cases generated successfully + JSON with results       │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   Test 3: View Logs
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ gcloud run logs read gherkin-agent --follow                           │
+   │                                                                         │
+   │ Shows: Real-time logs from your running service                       │
+   └────────────────────────────────────────────────────────────────────────┘
+
+
+💰 COSTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Cloud Run:     $0.40/month (free tier: 2M requests/month included)
+   Vertex AI:     $1.50 per million tokens (~$0.50-2/month typical)
+   Registry:      ~$0.01/month (storage)
+   Logging:       Free tier usually sufficient
+   
+   → TOTAL: ~$0.50-2.50/month ✅ (No charge for first 2M requests!)
+
+
+🔧 COMMON COMMANDS AFTER DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   View logs (real-time):
+   gcloud run logs read gherkin-agent --follow
+
+   View logs (recent):
+   gcloud run logs read gherkin-agent --limit=50
+
+   View service details:
+   gcloud run services describe gherkin-agent --region=us-central1
+
+   Update service (after code changes):
+   docker build -t gcr.io/$env:PROJECT_ID/gherkin-agent .
+   docker push gcr.io/$env:PROJECT_ID/gherkin-agent
+   gcloud run deploy gherkin-agent --image=gcr.io/$env:PROJECT_ID/gherkin-agent
+
+   Delete service (if needed):
+   gcloud run services delete gherkin-agent
+
+
+🚨 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Problem                  Solution
+   ──────────────────────   ──────────────────────────────────────────────
+   API not enabled          See: DEPLOYMENT_GUIDE.md → Troubleshooting
+   Permission denied        gcloud auth configure-docker gcr.io
+   Docker build fails       Make sure Docker is running
+   Service returns 500      gcloud run logs read gherkin-agent --follow
+   Service slow             Increase memory: --memory=4Gi
+   "Model not found"        Verify Vertex AI API enabled + permissions
+
+
+🆘 HELP & SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Issue Type              Where to Look
+   ──────────────────────  ──────────────────────────────────────────────
+   Deployment failing      YOUR_DEPLOYMENT_STEPS.md (Troubleshooting)
+   Using the API           README.md (API documentation)
+   Detailed guide          DEPLOYMENT_GUIDE.md (comprehensive)
+   Quick reference         QUICKSTART.md (5-min guide)
+   Understanding overview  INDEX.md or DEPLOYMENT_SUMMARY.md
+
+
+📋 FILE INVENTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   APPLICATION
+   main.py                 AI agent core logic + CLI interface
+   app.py                  Flask REST API web server
+   requirements.txt        Python package dependencies
+
+   DEPLOYMENT
+   deploy.py              Automated Python deployment script ⭐
+   deploy.sh              Bash script alternative (Mac/Linux)
+   Dockerfile             Docker image configuration
+   docker-compose.yml     Local Docker Compose setup
+
+   CONFIGURATION
+   .env.example           Environment variables template
+   .gitignore             Git ignore rules
+
+   DOCUMENTATION
+   INDEX.md               Overview (start here)
+   YOUR_DEPLOYMENT_STEPS.md  Your GCP guide ⭐
+   QUICKSTART.md          Quick reference
+   DEPLOYMENT_GUIDE.md    Comprehensive guide
+   DEPLOYMENT_SUMMARY.md  Visual overview
+   README.md              API documentation
+
+   EXAMPLE
+   example_swagger.yaml   Sample API spec for testing
+
+
+🎉 FINAL CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   □ Read: INDEX.md
+   □ Read: YOUR_DEPLOYMENT_STEPS.md  
+   □ Have GCP project ID ready
+   □ Run: python deploy.py
+   □ Wait 15 minutes
+   □ Get service URL
+   □ Test health endpoint
+   □ Upload example_swagger.yaml
+   □ Get test cases back
+   □ ✅ ALL WORKING!
+
+
+🚀 YOU'RE READY TO DEPLOY!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Start with:
+   
+   1. cd c:\Users\sagar\IdeaProjects\app-qag-sample-application\ai-agent
+   
+   2. $env:PROJECT_ID = "your-gcp-project-id"
+      gcloud config set project $env:PROJECT_ID
+   
+   3. python deploy.py
+   
+   → Sit back & let the script do everything!
+   → You'll have a live service in 15 minutes! 🎊
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                         Happy Deploying! 🚀
+═══════════════════════════════════════════════════════════════════════════════

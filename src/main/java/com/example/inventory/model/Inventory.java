@@ -3,17 +3,23 @@ package com.example.inventory.model;
 import java.util.Objects;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "Inventory item in the warehouse")
 public class Inventory {
+    @Schema(description = "Unique identifier (auto-generated if not provided)", example = "550e8400-e29b-41d4-a716-446655440000")
     private String id;
 
     @NotBlank(message = "name must not be blank")
+    @Schema(description = "Product name", example = "Widget")
     private String name;
 
     @Min(value = 0, message = "quantity must be >= 0")
+    @Schema(description = "Quantity in stock", example = "10")
     private int quantity;
 
     @NotBlank(message = "location must not be blank")
+    @Schema(description = "Warehouse location", example = "A1")
     private String location;
 
     public Inventory() {}
