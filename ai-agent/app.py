@@ -9,7 +9,6 @@ from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, send_file
 import json
 
-from main import generate_test_cases, generate_test_cases_from_text
 
 app = Flask(__name__)
 
@@ -68,6 +67,7 @@ def generate_from_upload():
         file.save(str(filepath))
         
         # Generate test cases
+        from main import generate_test_cases
         test_cases = generate_test_cases(str(filepath))
         
         # Save results
@@ -108,6 +108,7 @@ def generate_from_text():
     
     try:
         # Generate test cases
+        from main import generate_test_cases_from_text
         test_cases = generate_test_cases_from_text(spec_text)
         
         return jsonify({
