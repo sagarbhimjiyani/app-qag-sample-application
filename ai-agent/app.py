@@ -69,6 +69,26 @@ def generate_from_upload():
         # Generate test cases
         from main import generate_test_cases
         test_cases = generate_test_cases(str(filepath))
+
+        # Normalize result: some LLM SDKs return async generators or awaitables
+        import asyncio, inspect, types
+        if inspect.isasyncgen(test_cases) or isinstance(test_cases, types.AsyncGeneratorType):
+            async def _collect(gen):
+                parts = []
+                async for part in gen:
+                    parts.append(str(part))
+                return ''.join(parts)
+            try:
+                test_cases = asyncio.run(_collect(test_cases))
+            except Exception as e:
+                return jsonify({'error': f'Failed to collect async generator result: {e}', 'status': 'failed'}), 500
+        elif inspect.isawaitable(test_cases):
+            try:
+                test_cases = asyncio.run(test_cases)
+            except Exception as e:
+                return jsonify({'error': f'Failed to await result: {e}', 'status': 'failed'}), 500
+        else:
+            test_cases = str(test_cases)
         
         # Save results
         result_filename = filepath.stem + '_tests.feature'
@@ -110,6 +130,26 @@ def generate_from_text():
         # Generate test cases
         from main import generate_test_cases_from_text
         test_cases = generate_test_cases_from_text(spec_text)
+
+        # Normalize result: some LLM SDKs return async generators or awaitables
+        import asyncio, inspect, types
+        if inspect.isasyncgen(test_cases) or isinstance(test_cases, types.AsyncGeneratorType):
+            async def _collect(gen):
+                parts = []
+                async for part in gen:
+                    parts.append(str(part))
+                return ''.join(parts)
+            try:
+                test_cases = asyncio.run(_collect(test_cases))
+            except Exception as e:
+                return jsonify({'error': f'Failed to collect async generator result: {e}', 'status': 'failed'}), 500
+        elif inspect.isawaitable(test_cases):
+            try:
+                test_cases = asyncio.run(test_cases)
+            except Exception as e:
+                return jsonify({'error': f'Failed to await result: {e}', 'status': 'failed'}), 500
+        else:
+            test_cases = str(test_cases)
         
         return jsonify({
             'status': 'success',
@@ -169,7 +209,7 @@ if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
     
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 8080))
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
     
     print(f"Starting Gherkin Test Case Generation Agent on port {port}...")
