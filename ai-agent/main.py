@@ -207,7 +207,17 @@ Output only the Gherkin feature files. No additional explanation needed.
 
     # If we reach here, no invocation succeeded
     if last_exc:
-        raise RuntimeError("Failed to invoke LLM agent: ") from last_exc
+        # Provide more diagnostic info: exception + agent type + available methods
+        try:
+            agent_type = type(spec_reader_agent).__name__
+            agent_methods = [n for n in dir(spec_reader_agent) if not n.startswith('_')]
+        except Exception:
+            agent_type = str(type(spec_reader_agent))
+            agent_methods = []
+        raise RuntimeError(
+            f"Failed to invoke LLM agent; last error: {last_exc!r}; "
+            f"agent_type: {agent_type}; agent_methods: {agent_methods}"
+        ) from last_exc
     raise RuntimeError("LLM agent object doesn't expose a known generation method.")
 
 
