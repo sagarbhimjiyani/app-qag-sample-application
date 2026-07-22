@@ -201,20 +201,34 @@ Output only the Gherkin feature files. No additional explanation needed.
                     # positional call failed; try keyword variants below
                     pass
 
-            # Try common keyword names
-            kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages')
+            # Try common keyword names (including ADK's node_input) and node_input variants
+            kw_variants = ('prompt', 'input', 'text', 'instruction', 'messages', 'node_input')
             kw = {}
             for name in kw_variants:
                 if name in params:
                     if name == 'messages':
                         kw[name] = [prompt]
+                    elif name == 'node_input':
+                        # Provide node_input as dict with common shapes
+                        kw[name] = {'messages': [{'role': 'user', 'content': prompt}]}
                     else:
                         kw[name] = prompt
                     break
 
             if kw:
-                result = fn(**kw)
-                return result
+                try:
+                    result = fn(**kw)
+                    return result
+                except TypeError:
+                    # If node_input shape failed, try alternative node_input shapes
+                    if 'node_input' in kw:
+                        try:
+                            result = fn(node_input={'input': prompt})
+                            return result
+                        except Exception as e:
+                            last_exc = e
+                            pass
+                    last_exc = TypeError('Keyword invocation failed')
 
             # As a last resort, try calling with a single-element list (some SDKs expect messages)
             try:
