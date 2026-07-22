@@ -155,21 +155,21 @@ Output only the Gherkin feature files. No additional explanation needed.
     last_exc = None
     agent_type = type(spec_reader_agent).__name__
 
-    # If this is the ADK LlmAgent, try the ADK run signature first
+    # If this is the ADK LlmAgent, try the ADK run signature but do NOT pass a plain dict as ctx
     if agent_type == 'LlmAgent' and hasattr(spec_reader_agent, 'run'):
         try:
-            # Try common node_input shapes
+            # Try node_input shapes without providing ctx (ADK will construct proper context internally)
             try:
-                return spec_reader_agent.run(ctx={}, node_input={'messages': [{'role': 'user', 'content': prompt}]})
+                return spec_reader_agent.run(node_input={'messages': [{'role': 'user', 'content': prompt}]})
             except TypeError:
                 pass
             try:
-                return spec_reader_agent.run(ctx={}, node_input={'input': prompt})
+                return spec_reader_agent.run(node_input={'input': prompt})
             except TypeError:
                 pass
             try:
                 # Some ADK variants accept node_input as raw string
-                return spec_reader_agent.run(ctx={}, node_input=prompt)
+                return spec_reader_agent.run(node_input=prompt)
             except TypeError as e:
                 last_exc = e
         except Exception as e:
