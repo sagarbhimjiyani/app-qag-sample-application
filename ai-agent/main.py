@@ -9,6 +9,9 @@ import json
 import yaml
 from pathlib import Path
 
+# Flag set to True when optional LLM libraries are present.
+LLM_AVAILABLE = False
+
 from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
 from google.genai import Client
