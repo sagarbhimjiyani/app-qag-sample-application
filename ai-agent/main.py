@@ -11,13 +11,23 @@ from pathlib import Path
 
 # Flag set to True when optional LLM libraries are present.
 LLM_AVAILABLE = False
-
-from google.adk.agents import LlmAgent
-from google.adk.models import Gemini
-from google.genai import Client
-from google.adk.tools import agent_tool
-from google.adk.tools.google_search_tool import GoogleSearchTool
-from google.adk.tools import url_context
+try:
+    from google.adk.agents import LlmAgent
+    from google.adk.models import Gemini
+    from google.genai import Client
+    from google.adk.tools import agent_tool
+    from google.adk.tools.google_search_tool import GoogleSearchTool
+    from google.adk.tools import url_context
+    LLM_AVAILABLE = True
+except Exception:
+    # ADK/GenAI libraries not available at build/runtime; service will use fallbacks
+    LLM_AVAILABLE = False
+    LlmAgent = None
+    Gemini = None
+    Client = None
+    agent_tool = None
+    GoogleSearchTool = None
+    url_context = None
 
 
 class GlobalGemini(Gemini):
