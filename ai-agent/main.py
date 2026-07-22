@@ -117,6 +117,12 @@ def generate_test_cases(swagger_file_path: str) -> str:
     """
     # Load the Swagger/OpenAPI file
     spec = load_swagger_file(swagger_file_path)
+
+    if not LLM_AVAILABLE:
+        raise RuntimeError(
+            "LLM libraries (google-adk-agents/google-genai) are not installed. "
+            "Install them or deploy an image that includes these packages to enable generation."
+        )
     
     # Prepare the specification content for the agent
     spec_content = json.dumps(spec, indent=2)
