@@ -1,0 +1,16 @@
+"@depservice @v1_depinfo @positive
+
+Scenario: Positive scenario for depservice - v1_depinfo
+Given set header parameter x-header-dept-id to <x-header-dept-id>
+Given set header parameter x-header-sub-dept-id to <x-header-sub-dept-id>
+Given set header parameter X-header-dep-userid to <X-header-dep-userid>
+Given set header parameter X-header-req-tracking-id to <X-header-req-tracking-id>
+Given set query parameter scope to <scope>
+Given set query parameter personId to <personId>
+Given set query parameter customerld to <customerld>
+Given set query parameter accountId to <accountId>
+Given set query parameter subAccountId to <subAccountId>
+Given set query parameter data to <data>
+When user sends GET request to depservice application, resource: /v1/depinfo
+Then user receives http status code 200
+"
