@@ -182,6 +182,132 @@ def generate_from_text():
         }), 500
 
 
+@app.route('/summary/upload', methods=['POST'])
+def summary_from_upload():
+    """
+    Generate test execution summary from an uploaded Serenity HTML report.
+
+    Expected: multipart/form-data with file field containing the Serenity report
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    if not file.filename.endswith('.html'):
+        return jsonify({
+            'error': 'Invalid file type. Only HTML files are accepted.'
+        }), 400
+
+    try:
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        filepath = UPLOAD_FOLDER / filename
+        file.save(str(filepath))
+
+        # Generate summary
+        from test_summary_agent import generate_summary_from_html
+        metrics, report_html = generate_summary_from_html(str(filepath))
+
+        # Save report
+        report_filename = filepath.stem + '_summary.html'
+        report_filepath = RESULTS_FOLDER / report_filename
+        with open(str(report_filepath), 'w', encoding='utf-8') as f:
+            f.write(report_html)
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Test execution summary generated successfully',
+            'metrics': metrics,
+            'report_file': report_filename,
+            'download_url': f'/download/{report_filename}'
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'status': 'failed'
+        }), 500
+
+
+@app.route('/summary/text', methods=['POST'])
+def summary_from_text():
+    """
+    Generate test execution summary from Serenity HTML content as text.
+
+    Expected: JSON with 'html_content' field containing the Serenity HTML
+    """
+    if not request.json or 'html_content' not in request.json:
+        return jsonify({'error': 'No HTML content provided in request body'}), 400
+
+    html_content = request.json['html_content']
+
+    if not isinstance(html_content, str):
+        return jsonify({'error': 'HTML content must be a string'}), 400
+
+    if len(html_content) < 100:
+        return jsonify({'error': 'HTML content is too short. Please provide a valid Serenity report.'}), 400
+
+    try:
+        # Parse and generate summary
+        from test_summary_agent import SerenityReportParser, generate_ai_insights, generate_interactive_html_report
+
+        parser = SerenityReportParser(html_content)
+        metrics = parser.get_metrics()
+
+        insights = generate_ai_insights(metrics, html_content)
+        report_html = generate_interactive_html_report(metrics, insights)
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Test execution summary generated successfully',
+            'metrics': metrics,
+            'report': report_html
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'status': 'failed'
+        }), 500
+
+
+@app.route('/summary/metrics/<filename>', methods=['GET'])
+def get_summary_metrics(filename):
+    """
+    Get metrics from a previously generated summary.
+
+    Expected: filename of the saved report
+    """
+    try:
+        filepath = RESULTS_FOLDER / secure_filename(filename)
+
+        if not filepath.exists():
+            return jsonify({'error': 'Report file not found'}), 404
+
+        # Read the HTML and extract metrics
+        with open(str(filepath), 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        # Extract metrics from the report
+        from test_summary_agent import SerenityReportParser
+        parser = SerenityReportParser(html_content)
+        metrics = parser.get_metrics()
+
+        return jsonify({
+            'status': 'success',
+            'metrics': metrics,
+            'report_file': filename
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
     """Download generated test case file."""
