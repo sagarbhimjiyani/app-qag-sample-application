@@ -131,19 +131,28 @@ def generate_test_cases_from_spec(spec: dict) -> str:
     api_version = api_info.get('version', '1.0')
 
     prompt = f"""
-Please analyze the following {api_title} (v{api_version}) specification and generate comprehensive Gherkin test cases.
+Please analyze the following {api_title} (v{api_version}) specification and generate Gherkin test cases that exactly match the format shown in the example file (including the starting and ending double quotes).
 
-SWAGGER/OPENAPI SPECIFICATION:
-{spec_content}
+The output for each operation (path + method) must be a single positive scenario matching this structure:
 
-Generate test cases in the following format:
-- Use Feature blocks for each endpoint or logical grouping
-- Include both POSITIVE and NEGATIVE test scenarios
-- Use standard Gherkin syntax (Given, When, Then)
-- Ensure coverage of all HTTP methods and status codes documented
-- Include validation, edge cases, and error handling scenarios
+"@<service> @<path_tag> @positive
 
-Output only the Gherkin feature files. No additional explanation needed.
+Scenario: Positive scenario for <service> - <path_tag>
+Given set header parameter <header-name> to <{{header-name}}>
+... (one line per header parameter present in the spec)
+Given set query parameter <param-name> to <{{param-name}}>
+... (one line per query parameter present in the spec)
+When user sends <HTTP_METHOD> request to <service> application, resource: <path>
+Then user receives http status code 200
+"
+
+Rules:
+- Start and end the scenario block with a double-quote (") as shown above.
+- The first line inside the quotes must be tags in the form: @<service> @<path_tag> @positive
+  where <service> is the API title (lowercased, spaces removed) and <path_tag> is the path without leading slash, with slashes replaced by underscores and path parameters (braces) removed.
+- Include one "Given set header parameter ..." line for every header parameter defined for the operation (use the parameter name exactly as in the spec).
+- Include one "Given set query parameter ..." line for every query parameter defined for the operation (use the parameter name exactly as in the spec).
+- Do NOT include Feature blocks or extra commentary. Output only the test case blocks, one block per operation.
 """
 
     # Try ADK agent first (if available) using a Runner-backed invocation
@@ -219,27 +228,54 @@ Output only the Gherkin feature files. No additional explanation needed.
 
     # Final fallback: deterministic generator from spec to Gherkin
     def simple_spec_to_gherkin(spec: dict) -> str:
-        title = api_title
-        parts = [f'Feature: {title}']
+        import re
+        title = api_title or 'service'
         paths = spec.get('paths', {}) or {}
         if not paths:
-            parts.append('\n# No paths found in spec; returning a minimal template')
-            parts.append('\nScenario: Minimal check')
-            parts.append('  Given the API exists')
-            parts.append('  When I send a GET request to /')
-            parts.append('  Then I should receive a response')
-            return '\n'.join(parts)
+            service = re.sub(r"\s+", "", title).lower()
+            return f'"@{service} @root @positive\n\nScenario: Positive scenario for {service} - root\nWhen user sends GET request to {service} application, resource: /\nThen user receives http status code 200\n"'
+
+        out_chunks = []
         for path, methods in paths.items():
             if not isinstance(methods, dict):
                 continue
             for method, info in methods.items():
-                summary = info.get('summary') if isinstance(info, dict) else None
-                parts.append(f"\n# {summary or ''}")
-                parts.append(f"Scenario: {method.upper()} {path}")
-                parts.append(f"  Given the API is available")
-                parts.append(f"  When I send a {method.upper()} request to {path}")
-                parts.append(f"  Then I should receive a 200 response (or appropriate status)")
-        return '\n'.join(parts)
+                service = re.sub(r"\s+", "", title).lower()
+                path_tag = path.strip('/').replace('/', '_').replace('{', '').replace('}', '') or 'root'
+
+                # Collect parameters from both operation and path-level
+                header_params = []
+                query_params = []
+                params = []
+                if isinstance(info, dict):
+                    params = info.get('parameters', []) or []
+                path_level = spec.get('paths', {}).get(path, {}) or {}
+                path_params = path_level.get('parameters', []) or []
+                for p in (path_params + params):
+                    if not isinstance(p, dict):
+                        continue
+                    name = p.get('name')
+                    in_loc = p.get('in')
+                    if not name or not in_loc:
+                        continue
+                    if in_loc == 'header':
+                        header_params.append(name)
+                    elif in_loc == 'query':
+                        query_params.append(name)
+
+                lines = []
+                lines.append(f'"@{service} @{path_tag} @positive\n')
+                lines.append(f'Scenario: Positive scenario for {service} - {path_tag}')
+                for h in header_params:
+                    lines.append(f'Given set header parameter {h} to <{h}>')
+                for q in query_params:
+                    lines.append(f'Given set query parameter {q} to <{q}>')
+                lines.append(f'When user sends {method.upper()} request to {service} application, resource: {path}')
+                lines.append('Then user receives http status code 200')
+                lines.append('"')
+
+                out_chunks.append('\n'.join(lines))
+        return '\n\n'.join(out_chunks)
 
     fallback = simple_spec_to_gherkin(spec)
     diagnostic = f"\n\n# Fallback used. ADK error: {getattr(adk_error, 'args', adk_error)}; genai error: {getattr(genai_exc, 'args', genai_exc)}"
