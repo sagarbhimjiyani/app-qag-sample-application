@@ -203,12 +203,45 @@ Rules:
         # Prefer chats API if available
         if hasattr(client, 'chats') and getattr(client, 'chats') is not None:
             try:
-                resp = client.chats.create(model='gemini-3.5-chat', messages=[{'author': 'user', 'content': prompt}])
-                # Try common response shapes
+                # The google.genai SDK has had multiple call signatures across versions.
+                # Try common signatures in order and accept whichever works.
+                resp = None
+                try:
+                    # newer interface used by some SDKs
+                    resp = client.chats.create(model='gemini-3.5-chat', messages=[{'author': 'user', 'content': prompt}])
+                except TypeError:
+                    try:
+                        # alternative: 'input' parameter
+                        resp = client.chats.create(model='gemini-3.5-chat', input=prompt)
+                    except TypeError:
+                        try:
+                            # some shims accept a single dict positional arg
+                            resp = client.chats.create({'model': 'gemini-3.5-chat', 'messages': [{'author': 'user', 'content': prompt}]})
+                        except Exception:
+                            # last resort: try a generic generate/chat method names
+                            if hasattr(client, 'chat') and hasattr(client.chat, 'generate'):
+                                resp = client.chat.generate(model='gemini-3.5-chat', input=prompt)
+                            elif hasattr(client, 'chats') and hasattr(client.chats, 'generate'):
+                                resp = client.chats.generate(model='gemini-3.5-chat', input=prompt)
+                            else:
+                                raise
+
+                # Normalize and return textual content from common response shapes
+                if resp is None:
+                    raise RuntimeError('chats.create returned no response')
+
                 if hasattr(resp, 'last'):
                     return str(getattr(resp, 'last'))
                 if hasattr(resp, 'output'):
                     return str(resp.output)
+                # dict-like responses
+                if isinstance(resp, dict):
+                    # try common keys
+                    for k in ('output', 'text', 'message', 'choices'):
+                        if k in resp:
+                            return json.dumps(resp[k]) if not isinstance(resp[k], str) else str(resp[k])
+                    return json.dumps(resp)
+
                 return str(resp)
             except Exception as e:
                 genai_exc = e
