@@ -2,5 +2,4 @@ google-adk
 google-genai==2.12.1
 pyyaml
 flask==2.3.0
-python-dotenv==1.0.0
-pydantic
+beautifulsoup4
